@@ -1,0 +1,35 @@
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: dashboard-ingress
+  namespace: kubernetes-dashboard
+  annotations:
+  {{ if not .EnableInsecureLogin }}
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/secure-backends: "true"
+    nginx.ingress.kubernetes.io/proxy-ssl-protocols: "https"
+    ingress.kubernetes.io/protocol: "https"
+    traefik.ingress.kubernetes.io/redirect-entry-point: https
+    traefik.ingress.kubernetes.io/frontend-entry-points: https
+  {{ end }}
+  {{ if .InsecureHeader }}
+    ingress.kubernetes.io/custom-request-headers: "Authorization: Bearer {{.Token}}"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Authorization "Bearer {{.Token}}";
+  {{ end }}
+spec:
+  {{ if not .EnableInsecureLogin }}
+  tls:
+    - secretName: kubernetes-dashboard-certs
+    - hosts:
+      - {{.Ingress}}
+  {{ end }}
+  rules:
+    - host: {{.Ingress}}
+      http:
+        paths:
+          - backend:
+              serviceName: kubernetes-dashboard
+              servicePort: {{ if .EnableInsecureLogin }}9090{{else}}8443{{end}}
